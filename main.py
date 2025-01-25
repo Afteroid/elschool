@@ -21,6 +21,7 @@ from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, CallbackQuery
 from aiogram.client.default import DefaultBotProperties
+from typing import List
 
 from aiogram.enums import ParseMode
 bot = Bot("YOUR_TOKEN", default=DefaultBotProperties(parse_mode=ParseMode.HTML))
@@ -34,6 +35,9 @@ options.add_argument("--disable-blink-features=AutomationControlled")
 options.add_argument("--no-sandbox")
 options.add_argument('--start-maximized')
 
+async def handle_task(callback: CallbackQuery, username: str, password: str, action: str):
+    await callback.message.answer(f"Выполняю, ожидайте")
+    await run_selenium_task(username, password, action, callback)
 
 async def run_selenium_task(username: str, password: str, action: str, callback: CallbackQuery):
     ob = Screenshot.Screenshot()
@@ -178,66 +182,16 @@ async def start(message: types.Message):
         [InlineKeyboardButton(text='Открытый исходный код', url='https://github.com/Afteroid/elschool/')]])
     await message.answer("Выберите что хотите узнать\n\n(если бот не отвечает долгое время значит вы стоите в очереди, в скорем времени бот ответит вам)", reply_markup=catalog)
 
-@dp.callback_query(F.data == "dz2")
-async def change_user_info(callback: CallbackQuery):
+@dp.callback_query(F.data.in_({"dz", "dz2", "itog", "tabel"}))
+async def handle_callback(callback: CallbackQuery):
     async with aiosqlite.connect('users.db') as db:
         async with db.execute('SELECT username, password FROM users WHERE tg_id = ?',
                               (callback.from_user.id,)) as cursor:
             user = await cursor.fetchone()
             if user:
-                await callback.message.answer("Захожу на аккаунт и рисую таблицу")
                 username, password = user
-                await run_selenium_task(username, password, "dz2", callback)
-                os.remove("screenshot.png")
-                os.remove("table_screenshot.png")
-            else:
-                await callback.message.reply(
-                    "Пользователь не найден. Пожалуйста, используйте команду /change для регистрации.\n(пример: /change логин пароль")
-
-@dp.callback_query(F.data == "itog")
-async def change_user_info(callback: CallbackQuery):
-    async with aiosqlite.connect('users.db') as db:
-        async with db.execute('SELECT username, password FROM users WHERE tg_id = ?',
-                              (callback.from_user.id,)) as cursor:
-            user = await cursor.fetchone()
-            if user:
-                await callback.message.answer("Захожу на аккаунт и рисую таблицу")
-                username, password = user
-                await run_selenium_task(username, password, "itog", callback)
-                os.remove("screenshot.png")
-                os.remove("table_screenshot.png")
-            else:
-                await callback.message.reply(
-                    "Пользователь не найден. Пожалуйста, используйте команду /change для регистрации.\n(пример: /change логин пароль")
-
-
-@dp.callback_query(F.data == "dz")
-async def change_user_info(callback: CallbackQuery):
-    async with aiosqlite.connect('users.db') as db:
-        async with db.execute('SELECT username, password FROM users WHERE tg_id = ?',
-                              (callback.from_user.id,)) as cursor:
-            user = await cursor.fetchone()
-            if user:
-                await callback.message.answer("Захожу на аккаунт и рисую таблицу")
-                username, password = user
-                await run_selenium_task(username, password, "dz", callback)
-                os.remove("screenshot.png")
-                os.remove("table_screenshot.png")
-            else:
-                await callback.message.reply(
-                    "Пользователь не найден. Пожалуйста, используйте команду /change для регистрации.\n(пример: /change логин пароль")
-
-@dp.callback_query(F.data == "tabel")
-async def change_user_info(callback: CallbackQuery):
-    async with aiosqlite.connect('users.db') as db:
-        async with db.execute('SELECT username, password FROM users WHERE tg_id = ?', (callback.from_user.id,)) as cursor:
-            user = await cursor.fetchone()
-            if user:
-                await callback.message.answer("Захожу на аккаунт и рисую таблицу")
-                username, password = user
-                await run_selenium_task(username, password, "tabel", callback)
-                os.remove("screenshot.png")
-                os.remove("table_screenshot.png")
+                action = callback.data
+                asyncio.create_task(handle_task(callback, username, password, action))
             else:
                 await callback.message.reply("Пользователь не найден. Пожалуйста, используйте команду /change для регистрации.\n(пример: /change логин пароль")
 
