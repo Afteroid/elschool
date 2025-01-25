@@ -1,3 +1,4 @@
+# tested on chrome 132.0.6834.84
 import asyncio
 from typing import BinaryIO
 
@@ -36,7 +37,7 @@ options.add_argument('--start-maximized')
 
 async def run_selenium_task(username: str, password: str, action: str, callback: CallbackQuery):
     ob = Screenshot.Screenshot()
-    service = Service(r"C:\Users\user\Desktop\elschool\chromedriver\chromedriver.exe")
+    service = Service(r"LOCATION_CHROME_DRIVER")
     browser = webdriver.Chrome(service=service)
 
     try:
