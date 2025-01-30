@@ -1,4 +1,4 @@
-aiogram==https://github.com/aiogram/aiogram/archive/refs/tags/v3.17.0.zip
+aiogram
 aiosqlite==0.20.0
 pillow==11.1.0
 selenium==4.28.0
