@@ -48,7 +48,7 @@ async def handle_task(callback: CallbackQuery, username: str, password: str, act
 async def run_selenium_task(username: str, password: str, action: str, callback: CallbackQuery):
     ob = Screenshot.Screenshot()
     service = Service(r"LOCATION_CHROME_DRIVER")
-    browser = webdriver.Chrome(service=service)
+    browser = webdriver.Chrome(service=service, options=options)
 
     try:
         browser.set_window_size(1920, 1080)
@@ -168,12 +168,11 @@ async def change_user_info(message: types.Message):
                 VALUES (?, ?, ?)
             ''', (tg_id, username, password))
             await db.commit()
-
         await message.reply("Информация успешно обновлена!")
     except ValueError:
         await message.reply("Неверный формат команды.")
     except Exception as e:
-        await message.reply(f"Произошла ошибка: {e}")
+        await message.reply(f"Можно использовать только 1 аккаунт!")
 
 async def main():
     await bot.delete_webhook(drop_pending_updates=True)
@@ -185,6 +184,7 @@ async def start(message: types.Message):
         [InlineKeyboardButton(text='Табель', callback_data='tabel')],
         [InlineKeyboardButton(text='Итоговые', callback_data='itog')],
         [InlineKeyboardButton(text='Д/З', callback_data='dz'), InlineKeyboardButton(text='След. Д/З', callback_data='dz2')],
+        [InlineKeyboardButton(text='Настройки', callback_data='settings')],
         [InlineKeyboardButton(text='Открытый исходный код', url='https://github.com/Afteroid/elschool/')]])
     await message.answer("Выберите что хотите узнать\n\n(если бот не отвечает долгое время значит вы стоите в очереди, в скорем времени бот ответит вам)", reply_markup=catalog)
 
@@ -200,6 +200,24 @@ async def handle_callback(callback: CallbackQuery):
                 asyncio.create_task(handle_task(callback, username, password, action))
             else:
                 await callback.message.reply("Пользователь не найден. Пожалуйста, используйте команду /change для регистрации.\n(пример: /change логин пароль")
+
+@dp.callback_query(F.data == "settings")
+async def settings(callback: CallbackQuery):
+    catalog = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text='Удалить профиль', callback_data='del')],
+        [InlineKeyboardButton(text='Назад', callback_data='back')]
+    ])
+    await callback.message.answer("Настройки:", reply_markup=catalog)
+    await callback.message.delete()
+
+@dp.callback_query(F.data == "del")
+async def delete(callback: CallbackQuery):
+    tg_id = int(callback.from_user.id)
+    async with aiosqlite.connect('users.db') as db:
+        await db.execute('''DELETE FROM users WHERE tg_id = ?''', (tg_id,))
+        await db.commit()
+    await callback.message.answer("Профиль успешно удален! Используйте /start для дальнейшого использования")
+    await callback.message.delete()
 
 async def main():
     await start_create()
