@@ -2,6 +2,5 @@ aiogram
 aiosqlite==0.20.0
 pillow==11.1.0
 selenium==4.28.0
-Screenshot==1.0.1
 asyncio==3.4.3
 Selenium-Screenshot==2.1.0
