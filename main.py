@@ -21,25 +21,36 @@ from aiogram.types import FSInputFile
 from io import BytesIO
 import time
 import os
+from typing import List
 import aiogram
 import aiosqlite
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, CallbackQuery
 from aiogram.client.default import DefaultBotProperties
-from typing import List
+from cryptography.fernet import Fernet
 
 from aiogram.enums import ParseMode
-bot = Bot("YOUR_TOKEN", default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+bot = Bot("TOKEN", default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher()
 
 options = Options()
-options.add_argument("--headless")
 options.add_experimental_option("excludeSwitches", ["enable-automation"])
 options.add_experimental_option('useAutomationExtension', False)
 options.add_argument("--disable-blink-features=AutomationControlled")
 options.add_argument("--no-sandbox")
-options.add_argument('--start-maximized')
+
+if os.path.exists("pasjdczmsjdhjkashdlksda.key"):
+    with open("pasjdczmsjdhjkashdlksda.key", "rb") as key_file:
+        key = key_file.read()
+else:
+    # Генерация и сохранение ключа
+    key = Fernet.generate_key()
+    with open("pasjdczmsjdhjkashdlksda.key", "wb") as key_file:
+        key_file.write(key)
+
+cipher_suite = Fernet(key)
+
 
 async def handle_task(callback: CallbackQuery, username: str, password: str, action: str):
     await callback.message.answer(f"Выполняю, ожидайте")
@@ -47,11 +58,11 @@ async def handle_task(callback: CallbackQuery, username: str, password: str, act
 
 async def run_selenium_task(username: str, password: str, action: str, callback: CallbackQuery):
     ob = Screenshot.Screenshot()
-    service = Service(r"LOCATION_CHROME_DRIVER")
+    service = Service(r"CHROME_DRIVER")
     browser = webdriver.Chrome(service=service, options=options)
 
     try:
-        browser.set_window_size(1920, 1080)
+        browser.set_window_size(1050, 1000)
         browser.get("https://elschool.ru/logon/index")
 
         WebDriverWait(browser, 10).until(
@@ -68,6 +79,8 @@ async def run_selenium_task(username: str, password: str, action: str, callback:
         find_password = browser.find_element(By.ID, "password")
         find_password.send_keys(password)
         find_password.send_keys(Keys.RETURN)
+
+
 
         if action == "dz":
             browser.get("https://elschool.ru/users/diaries")
@@ -103,6 +116,10 @@ async def run_selenium_task(username: str, password: str, action: str, callback:
             browser.execute_script("arguments[0].setAttribute('style', 'position: absolute; top: 0px;')", topnav3)
             topnav4 = browser.find_element(By.CSS_SELECTOR, "div.navigation.d-flex")
             browser.execute_script("arguments[0].setAttribute('style', 'position: absolute; top: 0px;')", topnav4)
+            browser.set_window_size(1250, 1000)
+            blackmode2 = browser.find_elements(By.CSS_SELECTOR, ".DivForResultsTable .ResultsTable .results-mark")
+            for element in blackmode2:
+                browser.execute_script("arguments[0].setAttribute('style', 'color: #000')", element)
 
         elif action == "tabel":
             browser.get("https://elschool.ru/users/diaries")
@@ -115,9 +132,13 @@ async def run_selenium_task(username: str, password: str, action: str, callback:
             topnav3 = browser.find_element(By.CSS_SELECTOR, "nav.fixed-top.justify-content-start")
             browser.execute_script("arguments[0].setAttribute('style', 'position: absolute; top: 0px;')", topnav3)
 
-        blackmode = browser.find_element(By.CSS_SELECTOR, "i.fa.fa-moon-o")
-        browser.execute_script("arguments[0].click();", blackmode)
+        blackmode = browser.find_element(By.CSS_SELECTOR, ":root")
+        browser.execute_script("arguments[0].setAttribute('style', '--default-back: #474747; --default-back-second: #474747; --default-border: #000; --default-border-bold: #000; --default-header: #474747; --default-font: #fff;');", blackmode)
+        blackmode2 = browser.find_elements(By.CSS_SELECTOR, ".DivForGradesTable .GradesTable .grades-average")
+        for element in blackmode2:
+            browser.execute_script("arguments[0].setAttribute('style', 'color: #000')", element)
 
+        # Снимок экрана
         img = ob.full_screenshot(browser, save_path='.', image_name='screenshot.png')
         screenshot_image = Image.open('screenshot.png')
 
@@ -148,12 +169,13 @@ async def start_create():
                 ''')
         await db.commit()
 
-
 @dp.message(Command("change"))
 async def change_user_info(message: types.Message):
     try:
         _, username, password = message.text.split()
         tg_id = int(message.from_user.id)
+        encrypted_username = cipher_suite.encrypt(username.encode()).decode()
+        encrypted_password = cipher_suite.encrypt(password.encode()).decode()
 
         async with aiosqlite.connect('users.db') as db:
             await db.execute('''
@@ -166,13 +188,13 @@ async def change_user_info(message: types.Message):
             await db.execute('''
                 INSERT INTO users (tg_id, username, password)
                 VALUES (?, ?, ?)
-            ''', (tg_id, username, password))
+            ''', (tg_id, encrypted_username, encrypted_password))
             await db.commit()
         await message.reply("Информация успешно обновлена!")
     except ValueError:
         await message.reply("Неверный формат команды.")
     except Exception as e:
-        await message.reply(f"Можно использовать только 1 аккаунт!")
+        await message.reply(f"Можно использовать только 1 аккаунт! {e}")
 
 async def main():
     await bot.delete_webhook(drop_pending_updates=True)
@@ -195,9 +217,14 @@ async def handle_callback(callback: CallbackQuery):
                               (callback.from_user.id,)) as cursor:
             user = await cursor.fetchone()
             if user:
-                username, password = user
+                encrypted_username, encrypted_password = user
+
+                decrypted_username = cipher_suite.decrypt(encrypted_username.encode()).decode()
+                decrypted_password = cipher_suite.decrypt(encrypted_password.encode()).decode()
+
                 action = callback.data
-                asyncio.create_task(handle_task(callback, username, password, action))
+
+                asyncio.create_task(handle_task(callback, decrypted_username, decrypted_password, action))
             else:
                 await callback.message.reply("Пользователь не найден. Пожалуйста, используйте команду /change для регистрации.\n(пример: /change логин пароль")
 
